@@ -6,6 +6,10 @@ local utils = require('spectre.utils')
 local base = {}
 base.__index = base
 
+local async_lib = require('plenary.async_lib')
+local async = async_lib.async
+local await = async_lib.await
+local run = async_lib.run
 
 base.get_path_args = function(self, path)
     print("[spectre] should implement path_args for ", self.state.cmd)
@@ -68,24 +72,34 @@ base.search = function(self, query)
     if query.cwd == "" then query.cwd = nil end
 
     self.handler.on_start()
-    local job = Job:new({
-        enable_recording = true ,
-        command = self.state.cmd,
-        cwd = query.cwd,
-        args = args,
-        on_stdout = function(_, value) self:on_output(value) end,
-        on_stderr = function(_, value) self:on_error(value) end,
-        on_exit = function(_, value) self:on_exit(value) end
-    })
+    self.task = async(function ()
+        self.job = Job:new({
+            enable_recording = true ,
+            command = self.state.cmd,
+            cwd = query.cwd,
+            args = args,
+            on_stdout = function(_, value) self:on_output(value) end,
+            on_stderr = function(_, value) self:on_error(value) end,
+            on_exit = function(_, value) self:on_exit(value) end
+        })
+        self.job:start()
+    end)
+    run(self.task())
+end
 
-    job:start()
+base.stop = function(self)
+    if self.job then
+        self.job:shutdown()
+        self.job = nil
+    end
+    collectgarbage()
 end
 
 local function extend(child)
     local creator = {}
     creator.__index = creator
     function creator:new(config, handler)
-        assert(config ~= nil, "search config not nil")
+        assert(config, "search config not nil")
         handler = vim.tbl_extend('force', {
             on_start = function()
             end,
