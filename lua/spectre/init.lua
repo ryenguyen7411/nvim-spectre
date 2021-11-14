@@ -58,9 +58,9 @@ M.open_file_search = function()
 end
 
 M.open = function (opts)
-    if state.user_config == nil then
-        M.setup()
-    end
+    -- if state.user_config == nil then
+    --     M.setup()
+    -- end
 
     opts = vim.tbl_extend('force',{
         cwd = nil,
